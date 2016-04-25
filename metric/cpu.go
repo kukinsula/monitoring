@@ -6,9 +6,9 @@ import (
 	"log"
 	"math"
 	"os"
-	_ "reflect"
 	"runtime"
 	"strings"
+	"time"
 )
 
 var stat = "/proc/stat"
@@ -73,7 +73,27 @@ func (c *CPU) computeCpuLoad(first, second [nbCpuColumns]int) float64 {
 }
 
 func (c *CPU) Save() {
-	// TODO
+	file, err := os.OpenFile(cpudat, os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		log.Println(err)
+	}
+	defer file.Close()
+
+	str := fmt.Sprintf("%.2f,", c.LoadAverage)
+
+	for i := 0; i < c.NumCPU; i++ {
+		str += fmt.Sprintf("%.2f", c.LoadAverages[i])
+
+		if i != c.NumCPU-1 {
+			str += ","
+		}
+	}
+
+	str += "\n"
+
+	w := bufio.NewWriter(file)
+	w.WriteString(str)
+	w.Flush()
 }
 
 func (c *CPU) String() string {
@@ -84,7 +104,7 @@ func (c *CPU) String() string {
 	}
 
 	str += fmt.Sprintf("\nCtxt: \t\t%d (%d)\n", c.Ctxt, c.Ctxt-c.lastMeasure.Ctxt)
-	str += fmt.Sprintf("BootTime: \t%d\n", c.BootTime)
+	str += fmt.Sprintf("BootTime: \t%d (%v)\n", c.BootTime, time.Unix(c.BootTime, 0))
 	str += fmt.Sprintf("Processes: \t%d\n", c.Processes)
 	str += fmt.Sprintf("ProcsBlocked: \t%d\n", c.ProcsBlocked)
 	str += fmt.Sprintf("ProcsRunning: \t%d\n", c.ProcsRunning)
@@ -96,7 +116,7 @@ type cpuMeasure struct {
 	NumberCpus   int
 	cpus         [][nbCpuColumns]int
 	Ctxt         int
-	BootTime     int
+	BootTime     int64
 	Processes    int
 	ProcsRunning int
 	ProcsBlocked int

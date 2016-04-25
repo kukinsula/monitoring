@@ -1,0 +1,9 @@
+* Monitoring
+
+** Metrics
+*** TODO Network
+*** TODO Disks
+*** TODO Partitions
+*** TODO Processus
+*** DONE CPU
+*** DONE Memory

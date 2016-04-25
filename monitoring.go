@@ -18,20 +18,20 @@ func main() {
 }
 
 func monitor() {
-	mem := metric.NewMemory()
-	cpu := metric.NewCPU()
+	var metrics = []metric.Metric{
+		metric.NewCPU(),
+		metric.NewMemory(),
+		// metric.NewNetwork(),
+	}
 
 	clear()
 
 	for {
-		cpu.Update()
-		mem.Update()
-
-		cpu.Save()
-		mem.Save()
-
-		fmt.Println(cpu)
-		fmt.Println(mem)
+		for _, m := range metrics {
+			m.Update()
+			m.Save()
+			fmt.Println(m)
+		}
 
 		time.Sleep(time.Second)
 		clear()

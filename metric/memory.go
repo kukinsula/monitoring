@@ -23,11 +23,6 @@ func init() {
 	file.Close()
 }
 
-type Metric interface {
-	Update()
-	Save()
-}
-
 type Memory struct {
 	*memoryMeasure
 	lastMeasure *memoryMeasure
