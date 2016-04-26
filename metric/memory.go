@@ -3,7 +3,6 @@ package metric
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"strings"
@@ -17,7 +16,7 @@ func init() {
 
 	file, err := os.Create(memdat)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	file.Close()
@@ -105,7 +104,7 @@ type memoryMeasure struct {
 func (m *memoryMeasure) update() {
 	file, err := os.Open(meminfo)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	defer file.Close()
 
@@ -146,7 +145,7 @@ func (m *memoryMeasure) update() {
 func (m memoryMeasure) save() {
 	file, err := os.OpenFile(memdat, os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
-		log.Println(err)
+		logger.Println(err)
 	}
 	defer file.Close()
 

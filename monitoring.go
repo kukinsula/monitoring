@@ -21,7 +21,7 @@ func monitor() {
 	var metrics = []metric.Metric{
 		metric.NewCPU(),
 		metric.NewMemory(),
-		// metric.NewNetwork(),
+		metric.NewNetwork(),
 	}
 
 	clear()

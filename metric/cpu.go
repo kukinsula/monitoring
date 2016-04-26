@@ -3,7 +3,6 @@ package metric
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"runtime"
@@ -21,7 +20,7 @@ func init() {
 
 	file, err := os.Create(cpudat)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	file.Close()
@@ -75,7 +74,7 @@ func (c *CPU) computeCpuLoad(first, second [nbCpuColumns]int) float64 {
 func (c *CPU) Save() {
 	file, err := os.OpenFile(cpudat, os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
-		log.Println(err)
+		logger.Println(err)
 	}
 	defer file.Close()
 
@@ -135,7 +134,7 @@ func newCpuMeasure() *cpuMeasure {
 func (c *cpuMeasure) update() {
 	file, err := os.Open(stat)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	defer file.Close()
 
@@ -189,11 +188,11 @@ func (c cpuMeasure) String() string {
 
 func checkSscanf(field string, err error, n, expected int) {
 	if err != nil {
-		log.Fatalf("Sscanf ", field, ": ", err)
+		logger.Fatalf("Sscanf ", field, ": ", err)
 	}
 
 	if n != expected {
-		log.Fatalf("Sscanf '%s' parsed %d item(s) but expected %d",
+		logger.Fatalf("Sscanf '%s' parsed %d item(s) but expected %d",
 			field, n, expected)
 	}
 }
