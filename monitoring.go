@@ -30,7 +30,7 @@ func monitor() {
 		for _, m := range metrics {
 			m.Update()
 			m.Save()
-			fmt.Println(m)
+			fmt.Println(m, "\n")
 		}
 
 		time.Sleep(time.Second)

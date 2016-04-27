@@ -96,17 +96,18 @@ func (c *CPU) Save() {
 }
 
 func (c *CPU) String() string {
-	var str = fmt.Sprintf("CPU: \t%.2f %%\n", c.LoadAverage)
+	str := "\t========== CPU ==========\n\n"
+	str += fmt.Sprintf("CPU: \t\t%.2f %%\n", c.LoadAverage)
 
 	for i := 0; i < c.NumCPU; i++ {
-		str += fmt.Sprintf("CPU%d: \t%.2f %%\n", i, c.LoadAverages[i])
+		str += fmt.Sprintf("CPU%d: \t\t%.2f %%\n", i, c.LoadAverages[i])
 	}
 
 	str += fmt.Sprintf("\nCtxt: \t\t%d (%d)\n", c.Ctxt, c.Ctxt-c.lastMeasure.Ctxt)
 	str += fmt.Sprintf("BootTime: \t%d (%v)\n", c.BootTime, time.Unix(c.BootTime, 0))
 	str += fmt.Sprintf("Processes: \t%d\n", c.Processes)
 	str += fmt.Sprintf("ProcsBlocked: \t%d\n", c.ProcsBlocked)
-	str += fmt.Sprintf("ProcsRunning: \t%d\n", c.ProcsRunning)
+	str += fmt.Sprintf("ProcsRunning: \t%d", c.ProcsRunning)
 
 	return str
 }

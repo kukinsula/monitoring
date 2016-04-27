@@ -70,7 +70,8 @@ func (m Memory) PercentVmallocOccupied() float64 {
 }
 
 func (m Memory) String() string {
-	format := "MemTotal:\t %s\n"
+	format := "\t========== MEMORY ==========\n\n"
+	format += "MemTotal:\t %s\n"
 	format += "MemFree:\t %s\t%.3f %%\t(%s)\n"
 	format += "MemOccupied:\t %s\t%.3f %%\t(%s)\n"
 	format += "MemAvailable:\t %s\t\t\t(%s)\n"
