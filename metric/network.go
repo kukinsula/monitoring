@@ -14,6 +14,17 @@ var netdat = "dat/net.dat"
 
 const nbNetColumns = 16
 
+func init() {
+	_ = os.Remove(netdat)
+
+	file, err := os.Create(netdat)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	file.Close()
+}
+
 type Network struct {
 	measures     map[string]*networkInterface
 	lastMeasures map[string]*networkInterface
@@ -70,6 +81,30 @@ func (n *Network) computeNetworkSpeed() {
 }
 
 func (n *Network) Save() {
+	file, err := os.OpenFile(netdat, os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		logger.Println(err)
+	}
+	defer file.Close()
+
+	str := ""
+	i, length := 0, len(n.measures)
+
+	for _, v := range n.measures {
+		str += fmt.Sprintf("%f,%f", v.download, v.upload)
+
+		if i != length-1 {
+			str += ","
+		}
+
+		i++
+	}
+
+	str += "\n"
+
+	w := bufio.NewWriter(file)
+	w.WriteString(str)
+	w.Flush()
 }
 
 func (n Network) String() string {
