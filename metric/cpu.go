@@ -186,14 +186,3 @@ func (c cpuMeasure) String() string {
 
 	return str
 }
-
-func checkSscanf(field string, err error, n, expected int) {
-	if err != nil {
-		logger.Fatalf("Sscanf ", field, ": ", err)
-	}
-
-	if n != expected {
-		logger.Fatalf("Sscanf '%s' parsed %d item(s) but expected %d",
-			field, n, expected)
-	}
-}
