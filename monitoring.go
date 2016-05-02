@@ -22,6 +22,7 @@ func monitor() {
 		metric.NewCPU(),
 		metric.NewMemory(),
 		metric.NewNetwork(),
+		metric.NewProcesses(),
 	}
 
 	clear()
