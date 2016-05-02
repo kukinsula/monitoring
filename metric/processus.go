@@ -23,15 +23,20 @@ type processes []Process
 type Process struct {
 	Pid, Ppid, Pgrp, Nice, NumThreads int
 	Name, State                       string
+	Stime, Utime                      uint64
 }
 
 func NewProcesses() *Processes {
-	return &Processes{
-		Processes: make(processes, 10),
-	}
+	return &Processes{}
+}
+
+func (p Process) IsRunning() bool {
+	return p.State == "R"
 }
 
 func (p *Processes) Update() {
+	p.Processes = nil
+
 	files, err := ioutil.ReadDir(procdir)
 	if err != nil {
 		logger.Fatal(err)
@@ -84,6 +89,14 @@ func (p *Processes) readStatPid(pid string) {
 	if err != nil {
 		return
 	}
+	process.Stime, err = strconv.ParseUint(fields[15], 10, 64)
+	if err != nil {
+		return
+	}
+	process.Utime, err = strconv.ParseUint(fields[16], 10, 64)
+	if err != nil {
+		return
+	}
 
 	p.Processes = append(p.Processes, process)
 }
@@ -93,8 +106,10 @@ func (p Processes) Save() {}
 func (p Processes) String() string {
 	str := "\t========= PORCESS ==========\n"
 
-	for _, v := range p.Processes {
-		str += fmt.Sprintf("%+v\n", v)
+	for _, v := range p.Processes[:20] {
+		if v.IsRunning() {
+			str += fmt.Sprintf("%+v\n", v)
+		}
 	}
 
 	return str
