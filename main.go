@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/kukinsula/monitoring/metric"
 )
 
 func main() {
-	config, err := NewConfig()
+	config, err := metric.NewConfig()
 	if err != nil {
 		fmt.Printf("NewConfig failed: %s", err)
 		os.Exit(1)

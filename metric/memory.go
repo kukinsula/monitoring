@@ -8,42 +8,44 @@ import (
 	"strings"
 )
 
-const meminfo = "/proc/meminfo"
-
-var memdat = "dat/mem.dat"
-
-func init() {
-	_ = os.Remove(memdat)
-
-	file, err := os.Create(memdat)
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	file.Close()
-}
+const (
+	meminfo       = "/proc/meminfo"
+	memOutputFile = "mem"
+)
 
 type Memory struct {
 	*memoryMeasure
 	lastMeasure *memoryMeasure
+	outputFile  *os.File
 
 	// TODO: ajouter DeltaMemFree, DeltaMemOccupied, DeltaSwapFree, ...
 }
 
-func NewMemory() *Memory {
+func NewMemory(config *Config) (*Memory, error) {
+	// TODO : pour le mode ajouter une extension (.csv, .json, ...)
+	fileName := config.OutputDir + memOutputFile
+
+	_ = os.Remove(fileName)
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Memory{
 		memoryMeasure: &memoryMeasure{},
 		lastMeasure:   &memoryMeasure{},
-	}
+		outputFile:    file,
+	}, nil
 }
 
-func (m *Memory) Update() {
+func (m *Memory) Update() error {
 	*m.lastMeasure = *m.memoryMeasure
-	m.update()
+
+	return m.update()
 }
 
-func (m Memory) Save() {
-	m.save()
+func (m Memory) Save() error {
+	return m.save(m.outputFile)
 }
 
 func (m Memory) PercentMemFree() float64 {
@@ -104,10 +106,10 @@ type memoryMeasure struct {
 }
 
 // update updates memoryMeasure parsing /proc/meminfo.
-func (m *memoryMeasure) update() {
+func (m *memoryMeasure) update() error {
 	file, err := os.Open(meminfo)
 	if err != nil {
-		logger.Fatal(err)
+		return err
 	}
 	defer file.Close()
 
@@ -143,23 +145,18 @@ func (m *memoryMeasure) update() {
 	m.MemOccupied = m.MemTotal - m.MemFree
 	m.SwapOccupied = m.SwapTotal - m.SwapFree
 	m.VmallocFree = m.VmallocTotal - m.VmallocOccupied
+
+	return nil
 }
 
 // save writes current memoryMeasure to output file.
-func (m memoryMeasure) save() {
-	file, err := os.OpenFile(memdat, os.O_WRONLY|os.O_APPEND, 0600)
-	if err != nil {
-		logger.Println(err)
-	}
-	defer file.Close()
-
+func (m memoryMeasure) save(outputFile *os.File) error {
 	str := fmt.Sprintf("%d,%d,%d,%d,%d,%d,%d\n",
 		m.MemTotal, m.MemFree, m.MemOccupied, m.MemAvailable,
 		m.SwapTotal, m.SwapFree, m.SwapOccupied)
 
-	w := bufio.NewWriter(file)
-	w.WriteString(str)
-	w.Flush()
+	_, err := outputFile.Write([]byte(str))
+	return err
 }
 
 type kbyte int

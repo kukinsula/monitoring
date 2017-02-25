@@ -27,20 +27,20 @@ type Process struct {
 	Stime, Utime                      uint64
 }
 
-func NewProcesses() *Processes {
-	return &Processes{}
+func NewProcesses(config *Config) (*Processes, error) {
+	return &Processes{}, nil
 }
 
 func (p Process) IsRunning() bool {
 	return p.State == "R"
 }
 
-func (p *Processes) Update() {
+func (p *Processes) Update() error {
 	p.Processes = nil
 
 	files, err := ioutil.ReadDir(procdir)
 	if err != nil {
-		logger.Fatal(err)
+		return err
 	}
 
 	var validProcessID = regexp.MustCompile(`^[0-9]*$`)
@@ -52,6 +52,8 @@ func (p *Processes) Update() {
 	}
 
 	sort.Sort(p.Processes)
+
+	return nil
 }
 
 func (p *Processes) readStatPid(pid string) {
@@ -102,7 +104,7 @@ func (p *Processes) readStatPid(pid string) {
 	p.Processes = append(p.Processes, process)
 }
 
-func (p Processes) Save() {}
+func (p Processes) Save() error { return nil }
 
 func (p Processes) String() string {
 	str := "\t========= PORCESS ==========\n"

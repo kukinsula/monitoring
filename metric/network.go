@@ -9,42 +9,42 @@ import (
 	"strings"
 )
 
-const dev = "/proc/net/dev"
-
-var netdat = "dat/net.dat"
-
-const nbNetColumns = 16
-
-func init() {
-	_ = os.Remove(netdat)
-
-	file, err := os.Create(netdat)
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	file.Close()
-}
+const (
+	dev           = "/proc/net/dev"
+	netOutputFile = "net"
+	nbNetColumns  = 16
+)
 
 type Network struct {
 	measures     map[string]*networkInterface
 	lastMeasures map[string]*networkInterface
+	outputFile   *os.File
 }
 
-func NewNetwork() *Network {
+func NewNetwork(config *Config) (*Network, error) {
+	// TODO : mode => extension
+	fileName := config.OutputDir + netOutputFile
+
+	_ = os.Remove(fileName)
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Network{
 		measures:     make(map[string]*networkInterface),
 		lastMeasures: make(map[string]*networkInterface),
-	}
+		outputFile:   file,
+	}, nil
 }
 
-func (n *Network) Update() {
+func (n *Network) Update() error {
 	n.lastMeasures = n.measures
 	n.measures = make(map[string]*networkInterface)
 
 	file, err := os.Open(dev)
 	if err != nil {
-		logger.Fatal(err)
+		return err
 	}
 	defer file.Close()
 
@@ -72,6 +72,8 @@ func (n *Network) Update() {
 	}
 
 	n.computeNetworkSpeed()
+
+	return nil
 }
 
 func (n *Network) computeNetworkSpeed() {
@@ -83,13 +85,7 @@ func (n *Network) computeNetworkSpeed() {
 	}
 }
 
-func (n *Network) Save() {
-	file, err := os.OpenFile(netdat, os.O_WRONLY|os.O_APPEND, 0600)
-	if err != nil {
-		logger.Println(err)
-	}
-	defer file.Close()
-
+func (n *Network) Save() error {
 	str := ""
 	i, length := 0, len(n.measures)
 
@@ -102,12 +98,10 @@ func (n *Network) Save() {
 
 		i++
 	}
-
 	str += "\n"
 
-	w := bufio.NewWriter(file)
-	w.WriteString(str)
-	w.Flush()
+	_, err := n.outputFile.Write([]byte(str))
+	return err
 }
 
 func (n Network) String() string {

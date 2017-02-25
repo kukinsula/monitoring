@@ -10,22 +10,11 @@ import (
 	"time"
 )
 
-const stat = "/proc/stat"
-
-var cpudat = "dat/cpu.dat"
-
-const nbCpuColumns = 10
-
-func init() {
-	_ = os.Remove(cpudat)
-
-	file, err := os.Create(cpudat)
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	file.Close()
-}
+const (
+	stat              = "/proc/stat"
+	cpuOutputFileName = "cpu"
+	nbCpuColumns      = 10
+)
 
 type CPU struct {
 	*cpuMeasure
@@ -33,6 +22,7 @@ type CPU struct {
 	LoadAverage  float64
 	LoadAverages []float64
 	NumCPU       int
+	outputFile   *os.File
 }
 
 type cpuMeasure struct {
@@ -45,24 +35,40 @@ type cpuMeasure struct {
 	ProcsBlocked int
 }
 
-func NewCPU() *CPU {
+func NewCPU(config *Config) (*CPU, error) {
 	NumCPU := runtime.NumCPU()
+
+	// TODO : pour le mode ajouter une extension (.csv, .json, ...)
+	fileName := config.OutputDir + cpuOutputFileName
+
+	_ = os.Remove(fileName)
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		return nil, err
+	}
 
 	return &CPU{
 		NumCPU:       NumCPU,
 		cpuMeasure:   newCpuMeasure(),
 		lastMeasure:  newCpuMeasure(),
 		LoadAverages: make([]float64, NumCPU),
-	}
+		outputFile:   file,
+	}, nil
 }
 
-func (c *CPU) Update() {
+func (c *CPU) Update() error {
 	*c.lastMeasure = *c.cpuMeasure
 	copy((*c.lastMeasure).cpus, (*c.cpuMeasure).cpus)
 	c.cpuMeasure.cpus = make([][nbCpuColumns]int, runtime.NumCPU()+1)
 
-	c.update()
+	err := c.update()
+	if err != nil {
+		return err
+	}
+
 	c.computeCpuAverages()
+
+	return nil
 }
 
 // computeCpuAverages computes the global CPU and all CPU cores usage.
@@ -85,13 +91,7 @@ func (c *CPU) computeCpuLoad(first, second [nbCpuColumns]int) float64 {
 }
 
 // Save saves the CPU stats to outpuf file.
-func (c *CPU) Save() {
-	file, err := os.OpenFile(cpudat, os.O_WRONLY|os.O_APPEND, 0600)
-	if err != nil {
-		logger.Println(err)
-	}
-	defer file.Close()
-
+func (c *CPU) Save() error {
 	str := fmt.Sprintf("%.2f,", c.LoadAverage)
 
 	for i := 0; i < c.NumCPU; i++ {
@@ -101,12 +101,10 @@ func (c *CPU) Save() {
 			str += ","
 		}
 	}
-
 	str += "\n"
 
-	w := bufio.NewWriter(file)
-	w.WriteString(str)
-	w.Flush()
+	_, err := c.outputFile.Write([]byte(str))
+	return err
 }
 
 func (c *CPU) String() string {
@@ -137,10 +135,10 @@ func newCpuMeasure() *cpuMeasure {
 }
 
 // update uodates the cpuMeasure parsing /proc/stat file.
-func (c *cpuMeasure) update() {
+func (c *cpuMeasure) update() error {
 	file, err := os.Open(stat)
 	if err != nil {
-		logger.Fatal(err)
+		return err
 	}
 	defer file.Close()
 
@@ -178,6 +176,8 @@ func (c *cpuMeasure) update() {
 			checkSscanf("ctxt", err, n, 1)
 		}
 	}
+
+	return nil
 }
 
 func (c cpuMeasure) String() string {
