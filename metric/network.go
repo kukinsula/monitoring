@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-var dev = "/proc/net/dev"
+const dev = "/proc/net/dev"
+
 var netdat = "dat/net.dat"
 
 const nbNetColumns = 16
@@ -64,7 +65,9 @@ func (n *Network) Update() {
 				}
 			}
 
-			n.measures[interfaceName] = &networkInterface{interfaceName, 0.0, 0.0, data}
+			n.measures[interfaceName] = &networkInterface{
+				interfaceName, 0.0, 0.0, data,
+			}
 		}
 	}
 

@@ -10,7 +10,8 @@ import (
 	"time"
 )
 
-var stat = "/proc/stat"
+const stat = "/proc/stat"
+
 var cpudat = "dat/cpu.dat"
 
 const nbCpuColumns = 10
@@ -34,6 +35,16 @@ type CPU struct {
 	NumCPU       int
 }
 
+type cpuMeasure struct {
+	NumberCpus   int
+	cpus         [][nbCpuColumns]int
+	Ctxt         int
+	BootTime     int64
+	Processes    int
+	ProcsRunning int
+	ProcsBlocked int
+}
+
 func NewCPU() *CPU {
 	NumCPU := runtime.NumCPU()
 
@@ -54,6 +65,7 @@ func (c *CPU) Update() {
 	c.computeCpuAverages()
 }
 
+// computeCpuAverages computes the global CPU and all CPU cores usage.
 func (c *CPU) computeCpuAverages() {
 	c.LoadAverage = c.computeCpuLoad(c.cpus[0], c.lastMeasure.cpus[0])
 
@@ -62,6 +74,7 @@ func (c *CPU) computeCpuAverages() {
 	}
 }
 
+// computeCpuLoad computes the CPU's first and second raw CPU stats.
 func (c *CPU) computeCpuLoad(first, second [nbCpuColumns]int) float64 {
 	numerator := float64((second[0] + second[1] + second[2]) -
 		(first[0] + first[1] + first[2]))
@@ -71,6 +84,7 @@ func (c *CPU) computeCpuLoad(first, second [nbCpuColumns]int) float64 {
 	return math.Abs(numerator / denominator * 100.0)
 }
 
+// Save saves the CPU stats to outpuf file.
 func (c *CPU) Save() {
 	file, err := os.OpenFile(cpudat, os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
@@ -112,16 +126,6 @@ func (c *CPU) String() string {
 	return str
 }
 
-type cpuMeasure struct {
-	NumberCpus   int
-	cpus         [][nbCpuColumns]int
-	Ctxt         int
-	BootTime     int64
-	Processes    int
-	ProcsRunning int
-	ProcsBlocked int
-}
-
 func newCpuMeasure() *cpuMeasure {
 	nbCpu := runtime.NumCPU()
 	cpus := make([][nbCpuColumns]int, nbCpu+1)
@@ -132,6 +136,7 @@ func newCpuMeasure() *cpuMeasure {
 	}
 }
 
+// update uodates the cpuMeasure parsing /proc/stat file.
 func (c *cpuMeasure) update() {
 	file, err := os.Open(stat)
 	if err != nil {

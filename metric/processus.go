@@ -11,7 +11,8 @@ import (
 	"strings"
 )
 
-var procdir = "/proc"
+const procdir = "/proc"
+
 var statfile = "stat"
 
 type Processes struct {

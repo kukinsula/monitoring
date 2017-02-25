@@ -8,7 +8,8 @@ import (
 	"strings"
 )
 
-var meminfo = "/proc/meminfo"
+const meminfo = "/proc/meminfo"
+
 var memdat = "dat/mem.dat"
 
 func init() {
@@ -26,7 +27,7 @@ type Memory struct {
 	*memoryMeasure
 	lastMeasure *memoryMeasure
 
-	// Ajouter DeltaMemFree, DeltaMemOccupied, DeltaSwapFree, ...
+	// TODO: ajouter DeltaMemFree, DeltaMemOccupied, DeltaSwapFree, ...
 }
 
 func NewMemory() *Memory {
@@ -102,6 +103,7 @@ type memoryMeasure struct {
 	MemAvailable                               kbyte
 }
 
+// update updates memoryMeasure parsing /proc/meminfo.
 func (m *memoryMeasure) update() {
 	file, err := os.Open(meminfo)
 	if err != nil {
@@ -143,6 +145,7 @@ func (m *memoryMeasure) update() {
 	m.VmallocFree = m.VmallocTotal - m.VmallocOccupied
 }
 
+// save writes current memoryMeasure to output file.
 func (m memoryMeasure) save() {
 	file, err := os.OpenFile(memdat, os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
