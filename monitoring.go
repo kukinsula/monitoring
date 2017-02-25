@@ -10,8 +10,10 @@ import (
 )
 
 func main() {
-	if len(os.Args) > 1 {
-		parseArgs()
+	_, err := NewConfig()
+	if err != nil {
+		fmt.Printf("NewConfig failed: %s", err)
+		os.Exit(1)
 	}
 
 	monitor()
@@ -43,22 +45,4 @@ func clear() {
 	cmd := exec.Command("clear")
 	cmd.Stdout = os.Stdout
 	cmd.Run()
-}
-
-func parseArgs() {
-	for _, arg := range os.Args[1:] {
-		switch arg {
-		case "--help", "-h":
-			help()
-			os.Exit(0)
-		default:
-			help()
-			os.Exit(1)
-		}
-	}
-}
-
-func help() {
-	fmt.Println(" Monitoring - help")
-	fmt.Println("* -h | --help : print help")
 }
