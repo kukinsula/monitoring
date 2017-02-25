@@ -9,28 +9,28 @@ import (
 	"github.com/kukinsula/monitoring/metric"
 )
 
-func main() {
-	_, err := NewConfig()
-	if err != nil {
-		fmt.Printf("NewConfig failed: %s", err)
-		os.Exit(1)
-	}
-
-	monitor()
+type Monitoring struct {
+	config  *Config
+	metrics []metric.Metric
 }
 
-func monitor() {
-	var metrics = []metric.Metric{
-		metric.NewCPU(),
-		metric.NewMemory(),
-		metric.NewNetwork(),
-		metric.NewProcesses(),
-	}
+func NewMonitoring(config *Config) (*Monitoring, error) {
+	return &Monitoring{
+		config: config,
+		metrics: []metric.Metric{
+			metric.NewCPU(),
+			metric.NewMemory(),
+			metric.NewNetwork(),
+			metric.NewProcesses(),
+		},
+	}, nil
+}
 
+func (m *Monitoring) Start() error {
 	clear()
 
 	for {
-		for _, m := range metrics {
+		for _, m := range m.metrics {
 			m.Update()
 			m.Save()
 			fmt.Println(m, "\n")
