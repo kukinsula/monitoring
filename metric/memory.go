@@ -33,7 +33,7 @@ func NewMemory(config *Config) (*Memory, error) {
 	fileName := config.OutputDir + memOutputFile
 
 	_ = os.Remove(fileName)
-	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
 	}

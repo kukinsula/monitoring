@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,6 +19,20 @@ type Monitoring struct {
 func NewMonitoring(config *metric.Config) (*Monitoring, error) {
 	var fields []string
 
+	// Création du dossier de output
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		return nil, err
+	}
+
+	config.OutputDir = dir + string(filepath.Separator) +
+		config.OutputDir + string(filepath.Separator)
+
+	err = os.MkdirAll(config.OutputDir, 0755)
+	if err != nil {
+		return nil, err
+	}
+
 	if config.Metrics == "" {
 		// TODO : trouver mieux
 		fields = []string{"cpu", "mem", "net", "proc"}
@@ -28,7 +43,6 @@ func NewMonitoring(config *metric.Config) (*Monitoring, error) {
 	metrics := make([]metric.Metric, 0, len(fields))
 
 	var m metric.Metric
-	var err error
 
 	for _, field := range fields {
 		switch field {
