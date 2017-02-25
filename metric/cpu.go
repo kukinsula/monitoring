@@ -180,7 +180,7 @@ func (c *cpuMeasure) update() error {
 	return nil
 }
 
-func (c cpuMeasure) String() string {
+func (c *cpuMeasure) String() string {
 	var str string
 
 	for i := 0; i < c.NumberCpus; i++ {

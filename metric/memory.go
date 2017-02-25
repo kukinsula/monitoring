@@ -21,6 +21,13 @@ type Memory struct {
 	// TODO: ajouter DeltaMemFree, DeltaMemOccupied, DeltaSwapFree, ...
 }
 
+type memoryMeasure struct {
+	MemTotal, MemFree, MemOccupied             kbyte
+	SwapTotal, SwapFree, SwapOccupied          kbyte
+	VmallocTotal, VmallocFree, VmallocOccupied kbyte
+	MemAvailable                               kbyte
+}
+
 func NewMemory(config *Config) (*Memory, error) {
 	// TODO : pour le mode ajouter une extension (.csv, .json, ...)
 	fileName := config.OutputDir + memOutputFile
@@ -44,35 +51,35 @@ func (m *Memory) Update() error {
 	return m.update()
 }
 
-func (m Memory) Save() error {
+func (m *Memory) Save() error {
 	return m.save(m.outputFile)
 }
 
-func (m Memory) PercentMemFree() float64 {
+func (m *Memory) PercentMemFree() float64 {
 	return 100.0 - m.PercentMemOccupied()
 }
 
-func (m Memory) PercentMemOccupied() float64 {
+func (m *Memory) PercentMemOccupied() float64 {
 	return float64(m.MemOccupied) * 100.0 / float64(m.MemTotal)
 }
 
-func (m Memory) PercentSwapFree() float64 {
+func (m *Memory) PercentSwapFree() float64 {
 	return 100.0 - m.PercentSwapOccupied()
 }
 
-func (m Memory) PercentSwapOccupied() float64 {
+func (m *Memory) PercentSwapOccupied() float64 {
 	return float64(m.SwapOccupied) * 100.0 / float64(m.SwapTotal)
 }
 
-func (m Memory) PercentVmallocFree() float64 {
+func (m *Memory) PercentVmallocFree() float64 {
 	return 100.0 - m.PercentVmallocOccupied()
 }
 
-func (m Memory) PercentVmallocOccupied() float64 {
+func (m *Memory) PercentVmallocOccupied() float64 {
 	return float64(m.VmallocOccupied) * 100.0 / float64(m.VmallocFree)
 }
 
-func (m Memory) String() string {
+func (m *Memory) String() string {
 	format := "\t========== MEMORY ==========\n\n"
 	format += "MemTotal:\t %s\n"
 	format += "MemFree:\t %s\t%.3f %%\t(%s)\n"
@@ -96,13 +103,6 @@ func (m Memory) String() string {
 		m.VmallocTotal,
 		m.VmallocFree, m.PercentVmallocFree(), m.VmallocFree-m.lastMeasure.VmallocFree,
 		m.VmallocOccupied, m.PercentVmallocOccupied(), m.VmallocOccupied-m.lastMeasure.VmallocOccupied)
-}
-
-type memoryMeasure struct {
-	MemTotal, MemFree, MemOccupied             kbyte
-	SwapTotal, SwapFree, SwapOccupied          kbyte
-	VmallocTotal, VmallocFree, VmallocOccupied kbyte
-	MemAvailable                               kbyte
 }
 
 // update updates memoryMeasure parsing /proc/meminfo.
@@ -150,7 +150,7 @@ func (m *memoryMeasure) update() error {
 }
 
 // save writes current memoryMeasure to output file.
-func (m memoryMeasure) save(outputFile *os.File) error {
+func (m *memoryMeasure) save(outputFile *os.File) error {
 	str := fmt.Sprintf("%d,%d,%d,%d,%d,%d,%d\n",
 		m.MemTotal, m.MemFree, m.MemOccupied, m.MemAvailable,
 		m.SwapTotal, m.SwapFree, m.SwapOccupied)

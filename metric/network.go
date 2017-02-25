@@ -21,6 +21,12 @@ type Network struct {
 	outputFile   *os.File
 }
 
+type networkInterface struct {
+	name             string
+	download, upload float64
+	measure          [nbNetColumns]int64
+}
+
 func NewNetwork(config *Config) (*Network, error) {
 	// TODO : mode => extension
 	fileName := config.OutputDir + netOutputFile
@@ -111,12 +117,6 @@ func (n Network) String() string {
 			v.name, v.download, v.upload)
 	}
 	return str
-}
-
-type networkInterface struct {
-	name             string
-	download, upload float64
-	measure          [nbNetColumns]int64
 }
 
 func isInterface(str string) bool {

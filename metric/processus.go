@@ -31,7 +31,7 @@ func NewProcesses(config *Config) (*Processes, error) {
 	return &Processes{}, nil
 }
 
-func (p Process) IsRunning() bool {
+func (p *Process) IsRunning() bool {
 	return p.State == "R"
 }
 
@@ -104,9 +104,9 @@ func (p *Processes) readStatPid(pid string) {
 	p.Processes = append(p.Processes, process)
 }
 
-func (p Processes) Save() error { return nil }
+func (p *Processes) Save() error { return nil }
 
-func (p Processes) String() string {
+func (p *Processes) String() string {
 	str := "\t========= PORCESS ==========\n"
 
 	for _, v := range p.Processes[:20] {
