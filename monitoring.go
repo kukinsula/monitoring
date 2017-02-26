@@ -11,6 +11,11 @@ import (
 	"github.com/kukinsula/monitoring/metric"
 )
 
+var (
+	supportedMetrics    = []string{"cpu", "mem", "net"}
+	nbSupprortedMetrics = len(supportedMetrics)
+)
+
 type Monitoring struct {
 	config  *metric.Config
 	metrics []metric.Metric
@@ -35,12 +40,16 @@ func NewMonitoring(config *metric.Config) (*Monitoring, error) {
 
 	if config.Metrics == "" {
 		// TODO : trouver mieux
-		fields = []string{"cpu", "mem", "net", "proc"}
+		fields = supportedMetrics
 	} else {
 		fields = strings.Split(config.Metrics, ",")
+
+		if len(fields) > nbSupprortedMetrics {
+			return nil, fmt.Errorf("too much metrics: max is %d", nbSupprortedMetrics)
+		}
 	}
 
-	metrics := make([]metric.Metric, 0, len(fields))
+	metrics := make([]metric.Metric, 0, nbSupprortedMetrics)
 
 	var m metric.Metric
 
@@ -53,7 +62,9 @@ func NewMonitoring(config *metric.Config) (*Monitoring, error) {
 		case "net":
 			m, err = metric.NewNetwork(config)
 		case "proc":
-			m, err = metric.NewProcesses(config)
+			// m, err = metric.NewProcesses(config)
+		default:
+			err = fmt.Errorf("invalid metric '%s'", field)
 		}
 
 		if err != nil {
@@ -70,22 +81,28 @@ func (m *Monitoring) Start() (err error) {
 	clear()
 
 	for {
-		for _, m := range m.metrics {
-			err = m.Update()
+		for _, metric := range m.metrics {
+			err = metric.Update()
 			if err != nil {
-				return fmt.Errorf("Metric update failed: %s", err)
+				return fmt.Errorf("metric update failed: %s", err)
 			}
 
-			err = m.Save()
+			err = metric.Save()
 			if err != nil {
-				return fmt.Errorf("Metric save failed: %s", err)
+				return fmt.Errorf("metric save failed: %s", err)
 			}
 
-			fmt.Printf("%s\n", m)
+			fmt.Printf("%s\n", metric)
 		}
 
 		time.Sleep(time.Second)
 		clear()
+	}
+}
+
+func (m *Monitoring) Close() {
+	for _, metric := range m.metrics {
+		metric.Close()
 	}
 }
 

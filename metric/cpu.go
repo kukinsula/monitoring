@@ -2,6 +2,7 @@ package metric
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -11,57 +12,55 @@ import (
 )
 
 const (
-	stat              = "/proc/stat"
-	cpuOutputFileName = "cpu"
-	nbCpuColumns      = 10
+	stat          = "/proc/stat"
+	cpuOutputFile = "cpu"
+	nbCpuColumns  = 10
 )
 
 type CPU struct {
-	*cpuMeasure
-	lastMeasure  *cpuMeasure
-	LoadAverage  float64
-	LoadAverages []float64
-	NumCPU       int
-	outputFile   *os.File
+	saver
+	config                      *Config
+	currentMeasure, lastMeasure *cpuMeasure
+	LoadAverage                 float64
+	LoadAverages                []float64
+	NumCPU                      int
 }
 
 type cpuMeasure struct {
-	NumberCpus   int
+	NumberCpus   int   `json:"number"`
+	Ctxt         int   `json:"context"`
+	BootTime     int64 `json:"boot-time"`
+	Processes    int   `json:"processes"`
+	ProcsRunning int   `json:"procs-running"`
+	ProcsBlocked int   `json:"procs-blocked"`
 	cpus         [][nbCpuColumns]int
-	Ctxt         int
-	BootTime     int64
-	Processes    int
-	ProcsRunning int
-	ProcsBlocked int
 }
 
 func NewCPU(config *Config) (*CPU, error) {
 	NumCPU := runtime.NumCPU()
+	cpu := &CPU{}
 
-	// TODO : pour le mode ajouter une extension (.csv, .json, ...)
-	fileName := config.OutputDir + cpuOutputFileName
-
-	_ = os.Remove(fileName)
-	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	saver, err := newSaver(config, cpu, cpuOutputFile)
 	if err != nil {
 		return nil, err
 	}
 
-	return &CPU{
-		NumCPU:       NumCPU,
-		cpuMeasure:   newCpuMeasure(),
-		lastMeasure:  newCpuMeasure(),
-		LoadAverages: make([]float64, NumCPU),
-		outputFile:   file,
-	}, nil
+	cpu.saver = *saver
+	cpu.config = config
+	cpu.NumCPU = NumCPU
+	cpu.currentMeasure = newCpuMeasure()
+	cpu.lastMeasure = newCpuMeasure()
+	cpu.LoadAverages = make([]float64, NumCPU)
+
+	return cpu, nil
 }
 
 func (c *CPU) Update() error {
-	*c.lastMeasure = *c.cpuMeasure
-	copy((*c.lastMeasure).cpus, (*c.cpuMeasure).cpus)
-	c.cpuMeasure.cpus = make([][nbCpuColumns]int, runtime.NumCPU()+1)
+	*c.lastMeasure = *c.currentMeasure
+	copy((*c.lastMeasure).cpus, (*c.currentMeasure).cpus)
+	c.currentMeasure.cpus = make([][nbCpuColumns]int, runtime.NumCPU()+1)
 
-	err := c.update()
+	err := c.currentMeasure.update()
 	if err != nil {
 		return err
 	}
@@ -73,10 +72,10 @@ func (c *CPU) Update() error {
 
 // computeCpuAverages computes the global CPU and all CPU cores usage.
 func (c *CPU) computeCpuAverages() {
-	c.LoadAverage = c.computeCpuLoad(c.cpus[0], c.lastMeasure.cpus[0])
+	c.LoadAverage = c.computeCpuLoad(c.currentMeasure.cpus[0], c.lastMeasure.cpus[0])
 
 	for i := 0; i < runtime.NumCPU(); i++ {
-		c.LoadAverages[i] = c.computeCpuLoad(c.cpus[i+1], c.lastMeasure.cpus[i+1])
+		c.LoadAverages[i] = c.computeCpuLoad(c.currentMeasure.cpus[i+1], c.lastMeasure.cpus[i+1])
 	}
 }
 
@@ -90,8 +89,7 @@ func (c *CPU) computeCpuLoad(first, second [nbCpuColumns]int) float64 {
 	return math.Abs(numerator / denominator * 100.0)
 }
 
-// Save saves the CPU stats to outpuf file.
-func (c *CPU) Save() error {
+func (c *CPU) MarshalCSV() ([]byte, error) {
 	str := fmt.Sprintf("%.2f,", c.LoadAverage)
 
 	for i := 0; i < c.NumCPU; i++ {
@@ -103,8 +101,21 @@ func (c *CPU) Save() error {
 	}
 	str += "\n"
 
-	_, err := c.outputFile.Write([]byte(str))
-	return err
+	return []byte(str), nil
+}
+
+func (c *CPU) MarshalJSON() ([]byte, error) {
+	m := map[string]interface{}{
+		"number":        c.currentMeasure.NumberCpus,
+		"context":       c.currentMeasure.Ctxt,
+		"processes":     c.currentMeasure.Processes,
+		"procs-running": c.currentMeasure.ProcsRunning,
+		"procs-blocked": c.currentMeasure.ProcsBlocked,
+		"load":          c.LoadAverage,
+		"loads":         c.LoadAverages,
+	}
+
+	return json.Marshal(m)
 }
 
 func (c *CPU) String() string {
@@ -115,11 +126,11 @@ func (c *CPU) String() string {
 		str += fmt.Sprintf("CPU%d: \t\t%.2f %%\n", i, c.LoadAverages[i])
 	}
 
-	str += fmt.Sprintf("\nCtxt: \t\t%d (%d)\n", c.Ctxt, c.Ctxt-c.lastMeasure.Ctxt)
-	str += fmt.Sprintf("BootTime: \t%d (%v)\n", c.BootTime, time.Unix(c.BootTime, 0))
-	str += fmt.Sprintf("Processes: \t%d\n", c.Processes)
-	str += fmt.Sprintf("ProcsBlocked: \t%d\n", c.ProcsBlocked)
-	str += fmt.Sprintf("ProcsRunning: \t%d", c.ProcsRunning)
+	str += fmt.Sprintf("\nCtxt: \t\t%d (%d)\n", c.currentMeasure.Ctxt, c.currentMeasure.Ctxt-c.lastMeasure.Ctxt)
+	str += fmt.Sprintf("BootTime: \t%d (%v)\n", c.currentMeasure.BootTime, time.Unix(c.currentMeasure.BootTime, 0))
+	str += fmt.Sprintf("Processes: \t%d\n", c.currentMeasure.Processes)
+	str += fmt.Sprintf("ProcsBlocked: \t%d\n", c.currentMeasure.ProcsBlocked)
+	str += fmt.Sprintf("ProcsRunning: \t%d", c.currentMeasure.ProcsRunning)
 
 	return str
 }

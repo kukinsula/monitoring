@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -8,17 +9,31 @@ import (
 )
 
 func main() {
+	flag.Usage = func() { usage(nil) }
+
 	config, err := metric.NewConfig()
 	if err != nil {
-		fmt.Printf("NewConfig failed: %s", err)
-		os.Exit(1)
+		usage(err)
 	}
 
 	monitoring, err := NewMonitoring(config)
 	if err != nil {
-		fmt.Printf("NewMonitoring failed: %s", err)
-		os.Exit(1)
+		usage(err)
 	}
 
-	monitoring.Start()
+	err = monitoring.Start()
+	if err != nil {
+		fmt.Printf("Error: %s\n", err)
+		os.Exit(2)
+	}
+}
+
+func usage(err error) {
+	if err != nil {
+		fmt.Printf("Error: %s\n", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "usage: %s [OPTIONS]\n\n", os.Args[0])
+	flag.PrintDefaults()
+	os.Exit(1)
 }

@@ -11,11 +11,16 @@ import (
 	"strings"
 )
 
-const procdir = "/proc"
+const (
+	procdir            = "/proc"
+	procOutputFileName = "proc"
+)
 
 var statfile = "stat"
 
 type Processes struct {
+	saver
+	config    *Config
 	Processes processes
 }
 
@@ -28,7 +33,17 @@ type Process struct {
 }
 
 func NewProcesses(config *Config) (*Processes, error) {
-	return &Processes{}, nil
+	proc := &Processes{}
+
+	saver, err := newSaver(config, proc, procOutputFileName)
+	if err != nil {
+		return nil, err
+	}
+
+	proc.saver = *saver
+	proc.config = config
+
+	return proc, nil
 }
 
 func (p *Process) IsRunning() bool {
@@ -105,6 +120,10 @@ func (p *Processes) readStatPid(pid string) {
 }
 
 func (p *Processes) Save() error { return nil }
+
+// TODO
+func (n *Processes) MarshalCSV() ([]byte, error)  { return nil, nil }
+func (n *Processes) MarshalJSON() ([]byte, error) { return nil, nil }
 
 func (p *Processes) String() string {
 	str := "\t========= PORCESS ==========\n"

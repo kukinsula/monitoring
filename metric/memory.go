@@ -2,6 +2,7 @@ package metric
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -14,45 +15,54 @@ const (
 )
 
 type Memory struct {
-	*memoryMeasure
-	lastMeasure *memoryMeasure
-	outputFile  *os.File
+	saver
+	config                      *Config
+	currentMeasure, lastMeasure *memoryMeasure
 
 	// TODO: ajouter DeltaMemFree, DeltaMemOccupied, DeltaSwapFree, ...
 }
 
 type memoryMeasure struct {
-	MemTotal, MemFree, MemOccupied             kbyte
-	SwapTotal, SwapFree, SwapOccupied          kbyte
-	VmallocTotal, VmallocFree, VmallocOccupied kbyte
-	MemAvailable                               kbyte
+	MemTotal        kbyte `json:"total"`
+	MemFree         kbyte `json:"free"`
+	MemOccupied     kbyte `json:"occupied"`
+	MemAvailable    kbyte `json:"available"`
+	SwapTotal       kbyte `json:"swap-total"`
+	SwapFree        kbyte `json:"swap-free"`
+	SwapOccupied    kbyte `json:"swap-occupied"`
+	VmallocTotal    kbyte `json:"vm-allocated-total"`
+	VmallocFree     kbyte `json:"vm-allocated-free"`
+	VmallocOccupied kbyte `json:"vm-allocated-occupied"`
 }
 
 func NewMemory(config *Config) (*Memory, error) {
-	// TODO : pour le mode ajouter une extension (.csv, .json, ...)
-	fileName := config.OutputDir + memOutputFile
+	mem := &Memory{}
 
-	_ = os.Remove(fileName)
-	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	saver, err := newSaver(config, mem, memOutputFile)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Memory{
-		memoryMeasure: &memoryMeasure{},
-		lastMeasure:   &memoryMeasure{},
-		outputFile:    file,
-	}, nil
+	mem.saver = *saver
+	mem.config = config
+	mem.currentMeasure = &memoryMeasure{}
+	mem.lastMeasure = &memoryMeasure{}
+
+	return mem, nil
 }
 
 func (m *Memory) Update() error {
-	*m.lastMeasure = *m.memoryMeasure
+	*m.lastMeasure = *m.currentMeasure
 
-	return m.update()
+	return m.currentMeasure.update()
 }
 
-func (m *Memory) Save() error {
-	return m.save(m.outputFile)
+func (m *Memory) MarshalCSV() ([]byte, error) {
+	return m.currentMeasure.MarshalCSV()
+}
+
+func (m *Memory) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.currentMeasure)
 }
 
 func (m *Memory) PercentMemFree() float64 {
@@ -60,7 +70,8 @@ func (m *Memory) PercentMemFree() float64 {
 }
 
 func (m *Memory) PercentMemOccupied() float64 {
-	return float64(m.MemOccupied) * 100.0 / float64(m.MemTotal)
+	return float64(m.currentMeasure.MemOccupied) * 100.0 /
+		float64(m.currentMeasure.MemTotal)
 }
 
 func (m *Memory) PercentSwapFree() float64 {
@@ -68,7 +79,8 @@ func (m *Memory) PercentSwapFree() float64 {
 }
 
 func (m *Memory) PercentSwapOccupied() float64 {
-	return float64(m.SwapOccupied) * 100.0 / float64(m.SwapTotal)
+	return float64(m.currentMeasure.SwapOccupied) * 100.0 /
+		float64(m.currentMeasure.SwapTotal)
 }
 
 func (m *Memory) PercentVmallocFree() float64 {
@@ -76,7 +88,8 @@ func (m *Memory) PercentVmallocFree() float64 {
 }
 
 func (m *Memory) PercentVmallocOccupied() float64 {
-	return float64(m.VmallocOccupied) * 100.0 / float64(m.VmallocFree)
+	return float64(m.currentMeasure.VmallocOccupied) * 100.0 /
+		float64(m.currentMeasure.VmallocFree)
 }
 
 func (m *Memory) String() string {
@@ -93,16 +106,16 @@ func (m *Memory) String() string {
 	format += "VmallocOccupied: %s\t%.3f %%\t\t(%s)"
 
 	return fmt.Sprintf(format,
-		m.MemTotal,
-		m.MemFree, m.PercentMemFree(), m.MemFree-m.lastMeasure.MemFree,
-		m.MemOccupied, m.PercentMemOccupied(), m.MemOccupied-m.lastMeasure.MemOccupied,
-		m.MemAvailable, m.MemAvailable-m.lastMeasure.MemAvailable,
-		m.SwapTotal,
-		m.SwapFree, m.PercentSwapFree(), m.SwapFree-m.lastMeasure.SwapFree,
-		m.SwapOccupied, m.PercentSwapOccupied(), m.SwapOccupied-m.lastMeasure.SwapOccupied,
-		m.VmallocTotal,
-		m.VmallocFree, m.PercentVmallocFree(), m.VmallocFree-m.lastMeasure.VmallocFree,
-		m.VmallocOccupied, m.PercentVmallocOccupied(), m.VmallocOccupied-m.lastMeasure.VmallocOccupied)
+		m.currentMeasure.MemTotal,
+		m.currentMeasure.MemFree, m.PercentMemFree(), m.currentMeasure.MemFree-m.lastMeasure.MemFree,
+		m.currentMeasure.MemOccupied, m.PercentMemOccupied(), m.currentMeasure.MemOccupied-m.lastMeasure.MemOccupied,
+		m.currentMeasure.MemAvailable, m.currentMeasure.MemAvailable-m.lastMeasure.MemAvailable,
+		m.currentMeasure.SwapTotal,
+		m.currentMeasure.SwapFree, m.PercentSwapFree(), m.currentMeasure.SwapFree-m.lastMeasure.SwapFree,
+		m.currentMeasure.SwapOccupied, m.PercentSwapOccupied(), m.currentMeasure.SwapOccupied-m.lastMeasure.SwapOccupied,
+		m.currentMeasure.VmallocTotal,
+		m.currentMeasure.VmallocFree, m.PercentVmallocFree(), m.currentMeasure.VmallocFree-m.lastMeasure.VmallocFree,
+		m.currentMeasure.VmallocOccupied, m.PercentVmallocOccupied(), m.currentMeasure.VmallocOccupied-m.lastMeasure.VmallocOccupied)
 }
 
 // update updates memoryMeasure parsing /proc/meminfo.
@@ -149,14 +162,12 @@ func (m *memoryMeasure) update() error {
 	return nil
 }
 
-// save writes current memoryMeasure to output file.
-func (m *memoryMeasure) save(outputFile *os.File) error {
+func (m *memoryMeasure) MarshalCSV() ([]byte, error) {
 	str := fmt.Sprintf("%d,%d,%d,%d,%d,%d,%d\n",
 		m.MemTotal, m.MemFree, m.MemOccupied, m.MemAvailable,
 		m.SwapTotal, m.SwapFree, m.SwapOccupied)
 
-	_, err := outputFile.Write([]byte(str))
-	return err
+	return []byte(str), nil
 }
 
 type kbyte int

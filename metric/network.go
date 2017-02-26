@@ -2,6 +2,7 @@ package metric
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -16,32 +17,33 @@ const (
 )
 
 type Network struct {
+	saver
+	config       *Config
 	measures     map[string]*networkInterface
 	lastMeasures map[string]*networkInterface
-	outputFile   *os.File
 }
 
 type networkInterface struct {
-	name             string
-	download, upload float64
-	measure          [nbNetColumns]int64
+	Name     string              `json:"-"`
+	Download float64             `json:"download"`
+	Upload   float64             `json:"updaload"`
+	Measure  [nbNetColumns]int64 `json:"-"`
 }
 
 func NewNetwork(config *Config) (*Network, error) {
-	// TODO : mode => extension
-	fileName := config.OutputDir + netOutputFile
+	net := &Network{}
 
-	_ = os.Remove(fileName)
-	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	saver, err := newSaver(config, net, netOutputFile)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Network{
-		measures:     make(map[string]*networkInterface),
-		lastMeasures: make(map[string]*networkInterface),
-		outputFile:   file,
-	}, nil
+	net.saver = *saver
+	net.config = config
+	net.measures = make(map[string]*networkInterface)
+	net.lastMeasures = make(map[string]*networkInterface)
+
+	return net, nil
 }
 
 func (n *Network) Update() error {
@@ -85,18 +87,18 @@ func (n *Network) Update() error {
 func (n *Network) computeNetworkSpeed() {
 	for k, _ := range n.measures {
 		if n.lastMeasures[k] != nil {
-			n.measures[k].download = float64(n.measures[k].measure[0]-n.lastMeasures[k].measure[0]) / float64(1000000)
-			n.measures[k].upload = float64(n.measures[k].measure[9]-n.lastMeasures[k].measure[9]) / float64(1000000)
+			n.measures[k].Download = float64(n.measures[k].Measure[0]-n.lastMeasures[k].Measure[0]) / float64(1000000)
+			n.measures[k].Upload = float64(n.measures[k].Measure[9]-n.lastMeasures[k].Measure[9]) / float64(1000000)
 		}
 	}
 }
 
-func (n *Network) Save() error {
+func (n *Network) MarshalCSV() ([]byte, error) {
 	str := ""
 	i, length := 0, len(n.measures)
 
 	for _, v := range n.measures {
-		str += fmt.Sprintf("%f,%f", v.download, v.upload)
+		str += fmt.Sprintf("%f,%f", v.Download, v.Upload)
 
 		if i != length-1 {
 			str += ","
@@ -106,15 +108,18 @@ func (n *Network) Save() error {
 	}
 	str += "\n"
 
-	_, err := n.outputFile.Write([]byte(str))
-	return err
+	return []byte(str), nil
 }
 
-func (n Network) String() string {
+func (n *Network) MarshalJSON() ([]byte, error) {
+	return json.Marshal(n.measures)
+}
+
+func (n *Network) String() string {
 	str := "\t========== NETWORK ==========\n\n"
 	for _, v := range n.measures {
 		str += fmt.Sprintf("%s:\tDownload: %f MB/s,\tUpload: %f MB/s\n",
-			v.name, v.download, v.upload)
+			v.Name, v.Download, v.Upload)
 	}
 	return str
 }
